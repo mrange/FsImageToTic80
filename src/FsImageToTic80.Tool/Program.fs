@@ -161,7 +161,6 @@ let ditheringOption =
   Option<bool>(
       aliases         = [|"-d"; "--dithering"|]
     , description     = "Allow color dithering"
-    , getDefaultValue = fun () -> true
     )
 
 let overwriteOutputOption =
@@ -253,6 +252,7 @@ let toKeys
     |> Array.sort
     |> Keys
 
+// Example: dotnet run -- -tk 5 -i ..\..\assets\twister.png -oo -ot Png
 let rootCommandHandler
   (ctx            : InvocationContext )
   : unit =
@@ -281,6 +281,8 @@ let rootCommandHandler
       infof "  Transparency key         : %s"   transparencyKey.Pretty
       infof "  Allowed keys             : %s"   allowedKeys.Pretty
       infof "  Forbidden keys           : %s"   forbiddenKeys.Pretty
+      infof "  Dithering                : %A"   dithering
+      infof "  Overwrite output         : %A"   overwriteOutput
 
       if not (Path.Exists input.FullPath) then
         abort 91 "Input path does not exists"
@@ -318,6 +320,7 @@ let rootCommandHandler
       use image     = Image.Load<Rgba32> input.FullPath
 
       hili "Quantifying image colors to TIC-80 palette"
+      // TODO: Seems this causes transparency to be lost?
       do
         let options = new QuantizerOptions()
         if not dithering then
