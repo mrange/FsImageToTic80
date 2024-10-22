@@ -121,9 +121,9 @@ let tic80PaletteLookup =
   |> dict
 
 type OutputType =
-  | Lua
-  | Png
-  | Tic80
+  | Lua     = 0
+  | Png     = 1
+  | Tic80   = 2
 
 let inputOption =
   Option<string>(
@@ -136,7 +136,7 @@ let outputTypeOption =
   Option<OutputType>(
       aliases         = [|"-ot"; "--output-type"|]
     , description     = "Output image type"
-    , getDefaultValue = fun () -> Tic80
+    , getDefaultValue = fun () -> OutputType.Tic80
     )
 
 let transparencyKeyOption =
@@ -155,6 +155,13 @@ let forbiddenKeysOption =
   Option<string>(
       aliases         = [|"-fc"; "--forbidden-keys"|]
     , description     = "Which color keys (0-15) are forbidden"
+    )
+
+let ditheringOption =
+  Option<bool>(
+      aliases         = [|"-d"; "--dithering"|]
+    , description     = "Allow color dithering"
+    , getDefaultValue = fun () -> true
     )
 
 let overwriteOutputOption =
@@ -195,7 +202,7 @@ let toTransparencyKey
   : TransparencyKey =
   if k.HasValue then
     let k = k.Value
-    if isBetween k 0 15 then
+    if not (isBetween k 0 15) then
       abortf 80 "Transparency key is expected to be in range [0,15] but is: %d" k
     else
       TransparencyKey k
@@ -216,6 +223,7 @@ type Keys =
 
 
 let toKeys 
+  (nm : string      )
   (s  : string|null ) 
   (dv : string      )
   : Keys =
@@ -223,25 +231,27 @@ let toKeys
     if isNull s 
     then dv
     else s
-  let mapper i (s : string) : int =
-    let numberStyle = 
-      NumberStyles.Integer
-      ||| NumberStyles.AllowHexSpecifier
-      ||| NumberStyles.AllowLeadingWhite
-      ||| NumberStyles.AllowTrailingWhite
+  if String.IsNullOrWhiteSpace s then
+    Keys [||]
+  else
+    let mapper i (s : string) : int =
+      let numberStyle = 
+        NumberStyles.Integer
+        ||| NumberStyles.AllowLeadingWhite
+        ||| NumberStyles.AllowTrailingWhite
 
-    match Int32.TryParse (s, numberStyle, CultureInfo.InvariantCulture) with
-    | true  , v -> 
-      if isBetween v 0 15 then
-        abortf 81 "Key list '%s' contains value(s) that are outside range [0,15]. It broke at index %d" s i
-      else
-        v
-    | false , _ -> abortf 82 "Unable to parse key list '%s' into a sequence of integers. It broke at index %d" s i
-  s.Split (',')
-  |> Array.mapi mapper
-  |> Array.distinct
-  |> Array.sort
-  |> Keys
+      match Int32.TryParse (s, numberStyle, CultureInfo.InvariantCulture) with
+      | true  , v -> 
+        if not (isBetween v 0 15) then
+          abortf 81 "Value in %s '%s' is outside range [0,15]. It broke at index %d" nm s i
+        else
+          v
+      | false , _ -> abortf 82 "Unable to parse a value from %s '%s' into an integer. It broke at index %d" nm s i
+    s.Split (',')
+    |> Array.mapi mapper
+    |> Array.distinct
+    |> Array.sort
+    |> Keys
 
 let rootCommandHandler
   (ctx            : InvocationContext )
@@ -253,6 +263,7 @@ let rootCommandHandler
   let transparencyKey = getValue transparencyKeyOption
   let allowedKeys     = getValue allowedKeysOption
   let forbiddenKeys   = getValue forbiddenKeysOption
+  let dithering       = getValue ditheringOption
   let overwriteOutput = getValue overwriteOutputOption
 
   let exitCode = 
@@ -261,8 +272,8 @@ let rootCommandHandler
 
       let input             = toImagePath       input
       let transparencyKey   = toTransparencyKey transparencyKey
-      let allowedKeys       = toKeys            allowedKeys     "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15"
-      let forbiddenKeys     = toKeys            forbiddenKeys   ""
+      let allowedKeys       = toKeys            "allowed keys"   allowedKeys     "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15"
+      let forbiddenKeys     = toKeys            "forbidden keys" forbiddenKeys   ""
 
       hili  "fsimg2tic80 - Converts image to images usable in TIC-80"
       infof "  Input image path         : %s"   input.Pretty
@@ -278,9 +289,10 @@ let rootCommandHandler
         let output = input.FullPath
         let outputExtension = 
           match outputType with
-          | Lua   -> ".lua"
-          | Png   -> ".png"
-          | Tic80 -> ".tic80"
+          | OutputType.Lua    -> "lua"
+          | OutputType.Png    -> "png"
+          | OutputType.Tic80  -> "tic80"
+          | _                 -> abortf 70 "Illegal case %A" outputType
         let outputFileName  = Path.GetFileNameWithoutExtension output
         let outputFileName  = sprintf "tic80-%s.%s" outputFileName outputExtension
         let outputDirName   = Path.GetDirectoryName output
@@ -302,22 +314,21 @@ let rootCommandHandler
         tic80AllowedPalette
         |> Array.map snd
 
-      hilif "Loading image: %s" input.FullPath
-
+      hili "Loading image"
       use image     = Image.Load<Rgba32> input.FullPath
 
-      hilif "Changing image to TIC-80 palette: %s" input.FullPath
-      let quantizer = PaletteQuantizer tic80AllowedPalette
-      quantizer.Options.Dither <- null
+      hili "Quantifying image colors to TIC-80 palette"
       do
+        let options = new QuantizerOptions()
+        if not dithering then
+          options.Dither <- null
+        let quantizer = PaletteQuantizer (tic80AllowedPalette, options)
         let mutator (ctx : IImageProcessingContext) = 
           ctx.Quantize quantizer |> ignore
-      
-          ()
         image.Mutate mutator
 
       match outputType with
-      | Lua     ->
+      | OutputType.Lua     ->
         hilif "Saving as LUA code: %s" output
         let sb = StringBuilder ""
         let inline app      str = sb.Append (str : string) |> ignore
@@ -346,10 +357,10 @@ let rootCommandHandler
 
         File.WriteAllText (output, sb.ToString ())
 
-      | Png     ->
+      | OutputType.Png     ->
         hilif "Saving as PNG image: %s" output
         image.Save output
-      | Tic80   ->
+      | OutputType.Tic80   ->
         hilif "Saving as text that can be pasted into the sprite editor: %s" output
         
         let sb = StringBuilder """
@@ -400,6 +411,8 @@ let rootCommandHandler
         image.ProcessPixelRows pa
 
         File.WriteAllText (output, sb.ToString ())
+      | _ -> 
+        abortf 70 "Illegal case %A" outputType
 
       0
     with
@@ -424,6 +437,7 @@ let main
       transparencyKeyOption
       allowedKeysOption
       forbiddenKeysOption
+      ditheringOption
       overwriteOutputOption
     |] : Option array)
     |> Array.iter rootCommand.AddOption
