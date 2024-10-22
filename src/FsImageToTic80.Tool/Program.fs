@@ -286,6 +286,7 @@ let rootCommandHandler
         let outputDirName   = Path.GetDirectoryName output
 
         Path.Combine (outputDirName, outputFileName)
+      infof "Effective output file name: %s" output
 
       if not overwriteOutput && Path.Exists output then
         abort 92 "Output path exists, specify -oo to overwrite it"
