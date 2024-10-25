@@ -252,6 +252,36 @@ let toKeys
     |> Array.sort
     |> Keys
 
+let printFile name =
+  let baseDir  = AppDomain.CurrentDomain.BaseDirectory
+  let fileName = Path.GetFullPath (Path.Combine (baseDir, name))
+  let text     = File.ReadAllText fileName
+  Console.WriteLine text
+
+let noticeCommandHandler
+  (ctx            : InvocationContext )
+  : unit =
+
+  printFile "NOTICE"
+
+  ctx.ExitCode <- 0
+
+let readmeCommandHandler
+  (ctx            : InvocationContext )
+  : unit =
+
+  printFile "README.md"
+
+  ctx.ExitCode <- 0
+
+let licenseCommandHandler
+  (ctx            : InvocationContext )
+  : unit =
+
+  printFile "LICENSE"
+
+  ctx.ExitCode <- 0
+
 // Example: dotnet run -- -tk 5 -i ..\..\assets\twister.png -oo -ot Png
 let rootCommandHandler
   (ctx            : InvocationContext )
@@ -472,5 +502,18 @@ let main
     |> Array.iter rootCommand.AddOption
 
   rootCommand.SetHandler rootCommandHandler
+
+  let readmeCommand = Command ("readme", "Displays fsimg2tic80's README file")
+  readmeCommand.SetHandler readmeCommandHandler
+  rootCommand.AddCommand readmeCommand
+
+  let licenseCommand = Command ("license", "Displays fsimg2tic80's LICENSE file")
+  licenseCommand.SetHandler licenseCommandHandler
+  rootCommand.AddCommand licenseCommand
+
+  let noticeCommand = Command ("notice", "Displays fsimg2tic80's NOTICE file")
+  noticeCommand.SetHandler noticeCommandHandler
+  rootCommand.AddCommand noticeCommand
+
 
   rootCommand.Invoke args
