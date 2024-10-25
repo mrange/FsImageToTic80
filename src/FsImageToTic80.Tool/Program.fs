@@ -319,6 +319,10 @@ let rootCommandHandler
       hili "Loading image"
       use image     = Image.Load<Rgba32> input.FullPath
 
+      // Capture the alpha channel
+      let imageBits : Rgba32 array = Array.zeroCreate (image.Width*image.Height)
+      image.CopyPixelDataTo (imageBits.AsSpan ())
+
       hili "Quantifying image colors to TIC-80 palette"
       // TODO: Seems this causes transparency to be lost?
       do
@@ -329,6 +333,29 @@ let rootCommandHandler
         let mutator (ctx : IImageProcessingContext) = 
           ctx.Quantize quantizer |> ignore
         image.Mutate mutator
+
+      // Write back the alpha channel becuase dropped for some reason?
+      do
+        let pa =
+          PixelAccessorAction<Rgba32> (
+            fun a ->
+              let h = a.Height
+              let w = a.Width
+              for y = 0 to h - 1 do
+                let yoff = w*y
+                let row = a.GetRowSpan y
+                for x = 0 to w - 1 do
+                  let bit = imageBits.[yoff+x]
+                  let mutable pix  = row.[x]
+                  pix.A   <- bit.A
+                  row.[x] <- pix
+            )
+        image.ProcessPixelRows pa
+
+      let tk =
+        match transparencyKey with
+        | NoKey               -> 0
+        | TransparencyKey tk  -> tk
 
       match outputType with
       | OutputType.Lua     ->
@@ -351,8 +378,11 @@ let rootCommandHandler
                 let row = a.GetRowSpan y
                 for x = 0 to w - 1 do
                   let pix = row.[x]
-                  let idx = tic80PaletteLookup.[pix.Rgb]
-                  num idx
+                  if pix.A < 127uy then
+                    num tk
+                  else
+                    let idx = tic80PaletteLookup.[pix.Rgb]
+                    num idx
                 appline ""
               appline "}"
             )
@@ -384,10 +414,6 @@ let rootCommandHandler
         let pa =
           PixelAccessorAction<Rgba32> (
             fun a ->
-              let tk =
-                match transparencyKey with
-                | NoKey               -> 0
-                | TransparencyKey tk  -> tk
               // Writes the image as 4 64x64 tic-80 paste buffer
               for yy = 0 to 1 do
                 for xx = 0 to 1 do
