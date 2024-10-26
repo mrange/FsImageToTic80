@@ -147,13 +147,13 @@ let transparencyKeyOption =
 
 let allowedKeysOption =
   Option<string>(
-      aliases         = [|"-ac"; "--allowed-keys"|]
+      aliases         = [|"-ak"; "--allowed-keys"|]
     , description     = "Which color keys (0-15) are allowed"
     )
 
 let forbiddenKeysOption =
   Option<string>(
-      aliases         = [|"-fc"; "--forbidden-keys"|]
+      aliases         = [|"-fk"; "--forbidden-keys"|]
     , description     = "Which color keys (0-15) are forbidden"
     )
 
@@ -402,7 +402,25 @@ let rootCommandHandler
             fun a ->
               let h = a.Height
               let w = a.Width
-              appline (sprintf "-- Image data: %dx%d\nimageData = {" w h)
+
+              let prelude = 
+                sprintf """
+-- Example on how to draw imageData to screen
+function drawImage()
+  local x,y,yoff
+  for y=0,%d do
+  yoff = y*%d
+  for x=0,%d do
+    c = imageData[1+yoff+x]
+    pix(x,y,c)
+  end
+  end
+end
+-- Image data: %dx%d
+imageData = {
+"""               (h - 1) w (w - 1) w h
+
+              appline prelude
               for y = 0 to h - 1 do
                 app "  "
                 let row = a.GetRowSpan y
@@ -427,9 +445,9 @@ let rootCommandHandler
         hilif "Saving as text that can be pasted into the sprite editor: %s" output
         
         let sb = StringBuilder """
--- In order to paste image data into TIC-80 copy one of the four data lines
--- below. Then in TIC-80 set the sprite editor in 64x64 modus. Select
--- the place for the sprite and paste by pressing ctrl-v
+-- To paste image data into TIC-80, copy one of the four data lines below.
+-- In TIC-80, switch the sprite editor to 64x64 mode, choose the target sprite position,
+-- and press Ctrl+V to paste the data.
 
 """
 
@@ -444,7 +462,7 @@ let rootCommandHandler
         let pa =
           PixelAccessorAction<Rgba32> (
             fun a ->
-              // Writes the image as 4 64x64 tic-80 paste buffer
+              // Writes the image as 4 64x64 TIC-80 paste buffer
               for yy = 0 to 1 do
                 for xx = 0 to 1 do
                   for y = 64*yy to 64*yy+63 do
