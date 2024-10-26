@@ -1,8 +1,30 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <AssemblyName>fsimg2tic80</AssemblyName>
     <OutputType>Exe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+
+    <Copyright>Copyright (c) Mårten Rånge</Copyright>
+    <Authors>Mårten Rånge</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/mrange/FsImageToTic80</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <Title>Tool for converting standard images into formats useful for Tic-80</Title>
+    <Description>
+      A .NET tool for converting standard images into formats useful for Tic-80, such as Lua code or text compatible with sprite editor paste function.
+    </Description>
+    <ToolCommandName>fsimg2tic80</ToolCommandName>
+
+    <PackageTags>Tool;Image;Tic80</PackageTags>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
+    <PackageIcon>assets/icon.png</PackageIcon>
+    <PackAsTool>true</PackAsTool>
+    <PackageId>FsImageToTic80.Tool</PackageId>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
