@@ -56,10 +56,10 @@ exception AbortException of (int)
 
 let invariant = CultureInfo.InvariantCulture
 
-let writeToConsole 
-  (cc       : ConsoleColor) 
-  (prelude  : string      ) 
-  (msg      : string      ) 
+let writeToConsole
+  (cc       : ConsoleColor)
+  (prelude  : string      )
+  (msg      : string      )
   : unit =
   let occ = Console.ForegroundColor
   Console.ForegroundColor <- cc
@@ -181,9 +181,9 @@ type ImagePath   =
     let (ImagePath (_, fullPath)) = x
     fullPath
 
-let toImagePath 
-  (path : string) 
-  : ImagePath = 
+let toImagePath
+  (path : string)
+  : ImagePath =
   ImagePath (path, Path.GetFullPath path)
 
 type TransparencyKey =
@@ -196,8 +196,8 @@ type TransparencyKey =
     | TransparencyKey k -> string k
 
 
-let toTransparencyKey 
-  (k : int Nullable) 
+let toTransparencyKey
+  (k : int Nullable)
   : TransparencyKey =
   if k.HasValue then
     let k = k.Value
@@ -209,7 +209,7 @@ let toTransparencyKey
     NoKey
 
 
-type Keys = 
+type Keys =
   | Keys of int array
 
   member x.Pretty : string =
@@ -221,26 +221,26 @@ type Keys =
     keys
 
 
-let toKeys 
+let toKeys
   (nm : string      )
-  (s  : string|null ) 
+  (s  : string|null )
   (dv : string      )
   : Keys =
   let s =
-    if isNull s 
+    if isNull s
     then dv
     else s
   if String.IsNullOrWhiteSpace s then
     Keys [||]
   else
     let mapper i (s : string) : int =
-      let numberStyle = 
+      let numberStyle =
         NumberStyles.Integer
         ||| NumberStyles.AllowLeadingWhite
         ||| NumberStyles.AllowTrailingWhite
 
       match Int32.TryParse (s, numberStyle, CultureInfo.InvariantCulture) with
-      | true  , v -> 
+      | true  , v ->
         if not (isBetween v 0 15) then
           abortf 81 "Value in %s '%s' is outside range [0,15]. It broke at index %d" nm s i
         else
@@ -296,7 +296,7 @@ let rootCommandHandler
   let dithering       = getValue ditheringOption
   let overwriteOutput = getValue overwriteOutputOption
 
-  let exitCode = 
+  let exitCode =
     try
       assert (isNotNull input)
 
@@ -317,9 +317,9 @@ let rootCommandHandler
       if not (Path.Exists input.FullPath) then
         abort 91 "Input path does not exists"
 
-      let output = 
+      let output =
         let output = input.FullPath
-        let outputExtension = 
+        let outputExtension =
           match outputType with
           | OutputType.Lua    -> "lua"
           | OutputType.Png    -> "png"
@@ -360,7 +360,7 @@ let rootCommandHandler
         if not dithering then
           options.Dither <- null
         let quantizer = PaletteQuantizer (tic80AllowedPalette, options)
-        let mutator (ctx : IImageProcessingContext) = 
+        let mutator (ctx : IImageProcessingContext) =
           ctx.Quantize quantizer |> ignore
         image.Mutate mutator
 
@@ -393,7 +393,7 @@ let rootCommandHandler
         let sb = StringBuilder ""
         let inline app      str = sb.Append (str : string) |> ignore
         let inline appline  str = sb.AppendLine (str : string) |> ignore
-        let inline num      i   = 
+        let inline num      i   =
           sb.Append (i : int) |> ignore
           sb.Append ',' |> ignore
 
@@ -403,7 +403,7 @@ let rootCommandHandler
               let h = a.Height
               let w = a.Width
 
-              let prelude = 
+              let prelude =
                 sprintf """
 -- Example on how to draw imageData to screen
 function drawImage()
@@ -443,7 +443,7 @@ imageData = {
         image.Save output
       | OutputType.Tic80   ->
         hilif "Saving as text that can be pasted into the sprite editor: %s" output
-        
+
         let sb = StringBuilder """
 -- To paste image data into TIC-80, copy one of the four data lines below.
 -- In TIC-80, switch the sprite editor to 64x64 mode, choose the target sprite position,
@@ -488,7 +488,7 @@ imageData = {
         image.ProcessPixelRows pa
 
         File.WriteAllText (output, sb.ToString ())
-      | _ -> 
+      | _ ->
         abortf 70 "Illegal case %A" outputType
 
       0
